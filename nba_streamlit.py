@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 #df_final : données des top joueurs entre 2010 et 2020
 @st.cache_data
 def load_data():
-    df = pd.read_csv(r'C:\Users\dinhv\Documents\DATA SCIENTEST\données KAGGLE\NBA_Projet\df_final.csv')
+    df = pd.read_csv('data/df_final.csv')
     df = df.drop(["dist", "Tm", "AST", "TRB", "FT%", "WS", "PER", "VORP", "X Location", "Y Location"], axis=1)
     df["Game Date"] = pd.to_datetime(df["Game Date"], format="%Y-%m-%d", errors="coerce")
     return df
@@ -30,9 +30,8 @@ df = load_data()
 
 @st.cache_data
 def load_roc_data():
-    return joblib.load(
-        r'C:\Users\dinhv\Documents\DATA SCIENTEST\données KAGGLE\NBA_Projet\NOTEBOOK_FINAL\TOP_PLAYERS\VDEF\roc_data.pkl'
-    )
+    return joblib.load('data/roc_data.pkl')
+
 
 roc_data = load_roc_data()
 
@@ -92,7 +91,7 @@ if page == "Modélisation":
     st.write("### Modélisation")
 
 
-    df_results = pd.read_csv(r'C:\Users\dinhv\Documents\DATA SCIENTEST\données KAGGLE\NBA_Projet\NOTEBOOK_FINAL\TOP_PLAYERS\VDEF\model_results.csv')
+    df_results = pd.read_csv('data/model_results.csv')
 
     model_name = st.selectbox("Choisissez le modèle :", df_results["model"].unique())
 
@@ -400,9 +399,7 @@ if page == "Interprétation des résultats de la Régression Logistique":
     """)
 
     # Chargement du fichier de sauvegarde top joueur
-    data = joblib.load(
-        r"C:\Users\dinhv\Documents\DATA SCIENTEST\données KAGGLE\NBA_Projet\NOTEBOOK_FINAL\TOP_PLAYERS\VDEF\predictions_logit.pkl"
-    )
+    data = joblib.load("data/predictions_logit.pkl")
 
     X_test = data["X_test"]
     y_test = data["y_test"]
@@ -412,9 +409,7 @@ if page == "Interprétation des résultats de la Régression Logistique":
     pipe_logit = data["pipe_logit"] 
 
     # chargements modele Curry 
-    data_curry = joblib.load(
-        r"C:\Users\dinhv\Documents\DATA SCIENTEST\données KAGGLE\NBA_Projet\NOTEBOOK_FINAL\TOP_PLAYERS\VDEF\predictions_logit_curry.pkl"
-    )
+    data_curry = joblib.load("data/predictions_logit_curry.pkl")
 
     X_test_curry = data_curry["X_test"]
     y_test_curry = data_curry["y_test"]
