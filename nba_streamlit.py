@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 @st.cache_data
 def load_data():
     df = pd.read_csv('data/df_final.csv')
-    df = df.drop(["dist", "Tm", "AST", "TRB", "FT%", "WS", "PER", "VORP", "X Location", "Y Location"], axis=1)
+    df = df.drop(["dist", "Tm", "AST", "TRB", "FT%", "WS", "PER", "VORP", "X Location", "Y Location", "MP", "PTS"], axis=1)
     df["Game Date"] = pd.to_datetime(df["Game Date"], format="%Y-%m-%d", errors="coerce")
     return df
 
@@ -91,7 +91,7 @@ if page == "Modélisation":
     st.write("### Modélisation")
 
 
-    df_results = pd.read_csv('data/model_results.csv')
+    df_results = pd.read_csv('data/model_all_results.csv')
 
     model_name = st.selectbox("Choisissez le modèle :", df_results["model"].unique())
 
@@ -129,7 +129,7 @@ if page == "Modélisation":
 
     # Affichage des métriques ---
     if not df_model_filtered.empty:
-        st.write("#### Résultats")
+        st.write("#### Evaluation")
         st.write(f"{metric} : **{df_model_filtered[metric].values[0]:.4f}**")
 
         # Affichage de la courbe ROC ---
@@ -165,6 +165,54 @@ if page == "Modélisation":
             )
 
             st.plotly_chart(fig, use_container_width=True)
+
+            st.markdown("---")
+            st.subheader("Comparaison entre la probabilité prédite et la réalité")
+
+            # Création du DataFrame
+            if filtered_roc:
+                y_true = filtered_roc[0]["y_true"]
+                y_proba = filtered_roc[0]["y_proba"]
+                action_type = filtered_roc[0].get("action_type", None)
+
+            df_compare = pd.DataFrame({
+                "y_true": y_true,
+                "y_proba": y_proba
+            })
+
+            mean_values = df_compare.mean().round(3)
+            st.dataframe(mean_values.to_frame(name="Moyenne"))
+
+
+
+            # Graphique 1 : Par type d’action
+            if action_type is not None:
+                df_compare["Action Type"] = action_type
+
+                mean_action = (
+                    df_compare.groupby("Action Type")[["y_true", "y_proba"]]
+                    .mean()
+                    .round(3)
+                )
+
+                st.write("### Moyenne par type d’action de tir")
+                st.dataframe(mean_action)
+
+
+            else:
+                st.info("ℹ️ Données 'Action Type' non disponibles pour ce modèle.")
+
+
+            # --- Graphique 2 : Distribution globale ---
+            st.write("### Distribution des probabilités selon les données constatées")
+            fig_dist, ax_dist = plt.subplots(figsize=(7, 4))
+            sns.kdeplot(data=df_compare, x="y_proba", hue="y_true", fill=True, common_norm=False, ax=ax_dist)
+            ax_dist.set_title("Distribution des probabilités prédites selon la réalité (0 ou 1)")
+            ax_dist.set_xlabel("Probabilité prédite")
+            ax_dist.set_ylabel("Densité")
+            st.pyplot(fig_dist)
+
+
         else:
             st.warning("Données ROC non trouvées pour cette combinaison.")
     else:
@@ -234,7 +282,45 @@ if page == "DataVizualization":
     st.write("On constate que la plupart des tirs sont effecutés soit proche du panier, soit à 3 points.")
 
     st.markdown("---------------")
+    #taux de réussite par zone de tir
+    st.subheader("Taux de réussite en fonction de la zone de tir")
 
+
+    @st.cache_data
+    def zone_shot(df) :    
+        df2 = df.dropna(subset=['Shot Zone Area', 'Shot Distance', 'Shot Made Flag']).copy()
+
+        df2['distance_bin'] = pd.cut(df2['Shot Distance'],
+                            bins=[0, 8, 16, 24, 30, 50],
+                            labels=['less_than_8_ft', '8-16_ft', '16-24_ft', '24-30_ft', '30+_ft'])
+
+        heatmap_data = (
+            df2.groupby(['Shot Zone Area', 'distance_bin'])['Shot Made Flag']
+            .mean()
+            .reset_index()
+        )
+
+        heatmap_pivot = heatmap_data.pivot(index='Shot Zone Area',
+                                   columns='distance_bin',
+                                   values='Shot Made Flag')
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.heatmap(heatmap_pivot, annot=True, cmap='YlGnBu', fmt=".2f", linewidths=.5, ax=ax)
+        ax.set_title("Taux de Réussite des Tirs par Zone et Distance de Tir", fontsize=14, weight='bold')
+        ax.set_xlabel("Distance de Tir")
+        ax.set_ylabel("Zone de Tir")
+        plt.xticks(rotation=45)
+        return fig
+    
+    fig_zone = zone_shot(df)
+    st.pyplot(fig_zone)
+
+
+    st.write("On constate que les tirs proche et au centre du panier ont un meilleur taux de réussite.")
+
+
+
+    st.markdown("---------------")
 
 
     # taux de réussite selon le temps
@@ -503,6 +589,10 @@ if page == "Interprétation des résultats de la Régression Logistique":
     st.write("#### Top 6 variables influençant positivement la probabilité de réussite")
     df_coef_pos = df_coef.sort_values(by="Odds_ratio", ascending=False).head(6)
     st.dataframe(df_coef_pos.style.format({"Coefficient": "{:.3f}", "Odds_ratio": "{:.3f}"}))
+    st.write("Effectuer un Dunk multiplie les chances de marquer par 7, par rapport à un tir de référence. " \
+    "Les tirs à 2 points ont 1,45 fois plus de chance de réussir qu'un tir à 3 points. " \
+    "Les tirs au centre du panier ont 35% plus de chance de réussir.")
+
 
     # Top 8 variables influençant négativement la probabilité ---
     st.write("#### Top 8 variables influençant négativement la probabilité de réussite")
@@ -510,7 +600,10 @@ if page == "Interprétation des résultats de la Régression Logistique":
     st.dataframe(df_coef_neg.style.format({"Coefficient": "{:.3f}", "Odds_ratio": "{:.3f}"}))
 
     st.write("Les variables influençant positivement le tir sont les tirs proches et au centre du panier. " \
-    "Et inversément, les variables influençant négativement le tir sont les tirs éloignés ou les tirs difficiles (Jump Shot). Il y a une exception pour la variable Layup.")
+    "Et inversément, les variables influençant négativement le tir sont les tirs éloignés ou les tirs difficiles (Jump Shot). \n\n" \
+    "Un Jump Shot a 64% de chance en moins d'être réussi par rapport à un tir de référence. \n\n" \
+    "Les 3 points ont 32% de chance en moins. Augmenter la distance d'une unité, diminue les chances de réussite de 3%. \n\n" \
+    "Et plus le match avance, la réussite diminue de de 3% par quart-temps.")
 
 
     # Modele Curry
