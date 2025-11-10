@@ -70,7 +70,7 @@ if page == "Jeu de données":
     **Period** : (int) période du match (1 à 4, voire plus pour prolongation)  
     **Action Type** : (string) type d’action du tir (layup, dunk, hook, jump shot et 3 point)  
     **is_home** : (int) 1 si le joueur évolue à domicile, 0 sinon  
-    **angle** : (float) angle du tir par rapport à l’axe du panier (en radian)
+    **angle** : (float) angle du tir par rapport à l’axe du panier (en radian)  
     **Shot Zone Area** : (string) zone du terrain depuis laquelle le tir est tenté  
     **Shot Type** : (string) type de tir (2PT Field Goal ou 3PT Field Goal)  
     **Season Type** : (string) type de saison (Regular Season ou Playoffs)  
@@ -475,6 +475,24 @@ if page == "DataVizualization":
 
     fig_season = plot_shot_type_season(df)
     st.pyplot(fig_season)
+
+
+    # Matrice des corrélation
+    st.subheader("Matrice de corrélation")
+
+    @st.cache_data
+    def plot_corr(df):
+        numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+        matrix = df[numeric_cols].corr()
+        fig, ax = plt.subplots(figsize=(12, 8))
+        sns.heatmap(matrix, annot=True, fmt=".2f", cmap="coolwarm", ax=ax, cbar=True)
+        ax.set_title("Matrice de corrélation")
+
+        return fig
+
+    fig_corr = plot_corr(df)
+    st.pyplot(fig_corr)  
+
 
 if page == "Interprétation des résultats de la Régression Logistique":
     st.header("Interprétation des résultats de la Régression Logistique")
